@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import '../styles/auth.css';
+import { loginUser, registerUser } from '~/services/users/auth';
 
 type FocusableElement = {
   id: string;
@@ -12,6 +13,11 @@ type FocusableElement = {
   row: number;
   col: number;
 };
+const [alert, setAlert] = useState({
+  show: false,
+  message: '',
+  type: 'success',
+});
 
 export function AuthPage() {
   const { theme, setTheme, currentTheme, mounted } = useTheme();
@@ -131,9 +137,28 @@ export function AuthPage() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(formData);
+    const { email, password, username } = formData;
+
+    try {
+      if (isLogin) {
+        const response = await loginUser({ email, password });
+        if ('error' in response) {
+          throw new Error(response.error);
+        }
+        // 处理登录成功
+      } else {
+        const response = await registerUser({ email, password, username });
+        if ('error' in response) {
+          throw new Error(response.error);
+        }
+        // 处理注册成功
+      }
+    } catch (error) {
+      console.error(error);
+      // 处理错误
+    }
   };
 
   // Track focus changes
