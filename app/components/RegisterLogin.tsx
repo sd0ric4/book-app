@@ -5,6 +5,12 @@ import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import '../styles/auth.css';
 import { loginUser, registerUser } from '~/services/users/auth';
 
+type AlertState = {
+  show: boolean;
+  message: string;
+  type: 'success' | 'error';
+};
+
 type FocusableElement = {
   id: string;
   ref:
@@ -13,16 +19,16 @@ type FocusableElement = {
   row: number;
   col: number;
 };
-const [alert, setAlert] = useState({
-  show: false,
-  message: '',
-  type: 'success',
-});
 
 export function AuthPage() {
   const { theme, setTheme, currentTheme, mounted } = useTheme();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [alert, setAlert] = useState<AlertState>({
+    show: false,
+    message: '',
+    type: 'success',
+  });
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -130,6 +136,16 @@ export function AuthPage() {
     setFocusedElementId(firstElement.id);
   }, [isLogin]);
 
+  // Clear alert after 5 seconds
+  useEffect(() => {
+    if (alert.show) {
+      const timer = setTimeout(() => {
+        setAlert((prev) => ({ ...prev, show: false }));
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [alert]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
@@ -147,17 +163,30 @@ export function AuthPage() {
         if ('error' in response) {
           throw new Error(response.error);
         }
-        // 处理登录成功
+        setAlert({
+          show: true,
+          message: '登录成功！正在跳转...',
+          type: 'success',
+        });
+        // 处理登录成功后的跳转
       } else {
         const response = await registerUser({ email, password, username });
         if ('error' in response) {
           throw new Error(response.error);
         }
-        // 处理注册成功
+        setAlert({
+          show: true,
+          message: '注册成功！请登录',
+          type: 'success',
+        });
+        setTimeout(() => setIsLogin(true), 3000);
       }
     } catch (error) {
-      console.error(error);
-      // 处理错误
+      setAlert({
+        show: true,
+        message: error instanceof Error ? error.message : '操作失败，请重试',
+        type: 'error',
+      });
     }
   };
 
@@ -175,12 +204,12 @@ export function AuthPage() {
 
   return (
     <div
-      className={`min-h-screen ${currentTheme.background} ${currentTheme.text} transition-all duration-500`}
+      className={`min-h-screen ${currentTheme.background} ${currentTheme.text} transition-all duration-500 flex flex-col justify-center`}
       role='main'
       aria-label={isLogin ? '登录页面' : '注册页面'}
     >
-      <div className='max-w-md mx-auto p-4 md:p-6'>
-        <div className='flex justify-end mb-8'>
+      <div className='max-w-md mx-auto p-4 md:p-6 w-full'>
+        <div className='absolute top-4 right-4 md:top-6 md:right-6'>
           <ThemeMenu
             theme={theme}
             setTheme={setTheme}
@@ -188,6 +217,17 @@ export function AuthPage() {
           />
         </div>
 
+        {alert.show && (
+          <div
+            className={`mb-4 p-4 rounded-lg transition-all duration-300 ${
+              currentTheme.alert[alert.type]
+            }`}
+            role='alert'
+            aria-live='polite'
+          >
+            <p className='text-sm'>{alert.message}</p>
+          </div>
+        )}
         <div
           className={`${currentTheme.card} rounded-2xl p-6 md:p-8 shadow-lg border ${currentTheme.border}`}
         >

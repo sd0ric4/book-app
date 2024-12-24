@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../lib/theme/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
 import { Check } from 'lucide-react';
-import FontMenu from './FontMenu';
-interface ReaderProps {
+interface TextPaginationProps {
   initialText?: string;
 }
 
-const Reader: React.FC<ReaderProps> = ({
+const TextPagination: React.FC<TextPaginationProps> = ({
   initialText = '# Pride and Prejudice\n## By Jane Austen\n\n这是正文的第一行\n### 第一章\n这是第一章的内容\n#### 小节\n这是最后一行',
 }) => {
   const { theme, setTheme, currentTheme, mounted } = useTheme();
@@ -20,12 +19,19 @@ const Reader: React.FC<ReaderProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(0);
   const [showLineNumbers, setShowLineNumbers] = useState<boolean>(false);
   const [maxLineWidth, setMaxLineWidth] = useState<number>(40);
-  const [maxPageHeight, setMaxPageHeight] = useState<number>(5);
   const [fontFamily, setFontFamily] = useState<string>('mono');
-  const [fontSize, setFontSize] = useState<number>(16);
-  const lineHeightCache = useRef<number | null>(null);
+  const [fontSize, setFontSize] = useState<number>(14);
+  const [needMaxWidth, setNeedMaxWidth] = useState<boolean>(true);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
+
+  // 字体选项保持不变
+  const fontOptions = [
+    { value: 'mono', label: '等宽字体' },
+    { value: 'sans', label: '无衬线字体' },
+    { value: 'serif', label: '衬线字体' },
+  ];
 
   // 字符宽度计算保持不变...
   const getCharWidth = (char: string): number => {
@@ -46,38 +52,7 @@ const Reader: React.FC<ReaderProps> = ({
     }
     return 0.5;
   };
-  // 更新计算最大行高的函数
-  const calculateMaxHeight = (container: HTMLDivElement): number => {
-    if (!container) return 5;
 
-    // 获取容器样式
-    const containerStyle = window.getComputedStyle(container);
-    const containerHeight = container.offsetHeight;
-    const paddingTop = parseFloat(containerStyle.paddingTop);
-    const paddingBottom = parseFloat(containerStyle.paddingBottom);
-
-    // 测量实际行高
-    if (!lineHeightCache.current || fontSize) {
-      const testEl = document.createElement('div');
-      testEl.style.visibility = 'hidden';
-      testEl.style.position = 'absolute';
-      testEl.style.fontSize = `${fontSize}px`;
-      testEl.className = getFontFamilyClass(fontFamily);
-      testEl.textContent = '测试行高';
-
-      container.appendChild(testEl);
-      const testElHeight = testEl.offsetHeight;
-      container.removeChild(testEl);
-
-      lineHeightCache.current = testElHeight;
-    }
-
-    // 计算可用高度内可容纳的行数
-    const availableHeight = containerHeight - paddingTop - paddingBottom;
-    const maxLines = Math.floor(availableHeight / lineHeightCache.current);
-
-    return Math.max(1, maxLines); // 确保至少返回1
-  };
   // 检查是否为标题行并获取标题级别
   const getHeaderInfo = (line: string) => {
     const headerMatch = line.match(/^(#{1,6})\s/);
@@ -221,7 +196,7 @@ const Reader: React.FC<ReaderProps> = ({
     testEl.style.fontSize = `${fontSize}px`;
 
     // 用一组代表性的字符来测量
-    const testChars = '测';
+    const testChars = '测试Hello123.,';
     testEl.textContent = testChars;
 
     // 分别测量不同字体下的宽度
@@ -270,37 +245,32 @@ const Reader: React.FC<ReaderProps> = ({
   };
 
   // Effects 保持不变但需要添加对字体和字体大小的依赖...
-
-  // 更新 useEffect 以包含最大行数计算
   useEffect(() => {
-    const updateMaxDimensions = () => {
+    const updateMaxWidth = () => {
       if (containerRef.current && measureRef.current) {
         const calculatedMaxWidth = calculateMaxWidth(
           containerRef.current,
           measureRef,
           showLineNumbers
         );
-        const calculatedMaxHeight = calculateMaxHeight(containerRef.current);
-
         setMaxLineWidth(calculatedMaxWidth);
-        setMaxPageHeight(calculatedMaxHeight);
-        setLineWidth(calculatedMaxWidth);
-        setPageHeight(calculatedMaxHeight); // 自动设置为最大行数
+        if (needMaxWidth) {
+          // 自动设置为最大字符数
+          setLineWidth(calculatedMaxWidth);
+        }
       }
     };
 
-    const timeoutId = setTimeout(updateMaxDimensions, 50);
-    window.addEventListener('resize', updateMaxDimensions);
+    // 添加一个小延时以确保字体已经完全加载
+    const timeoutId = setTimeout(updateMaxWidth, 50);
+    window.addEventListener('resize', updateMaxWidth);
 
     return () => {
       clearTimeout(timeoutId);
-      window.removeEventListener('resize', updateMaxDimensions);
+      window.removeEventListener('resize', updateMaxWidth);
     };
-  }, [showLineNumbers, fontSize, fontFamily]);
-  // 在字体或字号变化时重置缓存
-  useEffect(() => {
-    lineHeightCache.current = null;
-  }, [fontSize, fontFamily]);
+  }, [showLineNumbers, fontSize, fontFamily, calculateMaxWidth]);
+
   useEffect(() => {
     const newPages = paginateText(text, lineWidth, pageHeight);
     setPages(newPages);
@@ -336,14 +306,7 @@ const Reader: React.FC<ReaderProps> = ({
       className={`min-h-screen ${currentTheme.background} ${currentTheme.text} transition-all duration-500`}
     >
       <div className='p-4 max-w-4xl mx-auto'>
-        <div className='flex justify-end mb-4 gap-2'>
-          <FontMenu
-            fontSize={fontSize}
-            fontFamily={fontFamily}
-            setFontFamily={setFontFamily}
-            currentThemeStyle={currentTheme}
-            setFontSize={setFontSize}
-          />
+        <div className='flex justify-end mb-4'>
           <ThemeMenu
             theme={theme}
             setTheme={setTheme}
@@ -352,7 +315,7 @@ const Reader: React.FC<ReaderProps> = ({
         </div>
 
         <div
-          className={`${currentTheme.card}  h-[90vh] rounded-lg p-6 shadow-lg border ${currentTheme.border}`}
+          className={`${currentTheme.card} rounded-lg p-6 shadow-lg border ${currentTheme.border}`}
         >
           <div className='mb-6'>
             <label className='block text-sm font-medium mb-2'>
@@ -391,28 +354,54 @@ const Reader: React.FC<ReaderProps> = ({
               </div>
             </div>
             <div>
-              {' '}
               <label className='block text-sm font-medium mb-2'>
                 每页行数：
                 <input
                   type='number'
                   value={pageHeight}
-                  onChange={(e) => {
-                    const value = Math.min(
-                      Number(e.target.value),
-                      maxPageHeight
-                    );
-                    setPageHeight(value);
-                  }}
-                  max={maxPageHeight}
+                  onChange={(e) => setPageHeight(Number(e.target.value))}
                   className={`w-full p-2 rounded mt-2 ${currentTheme.card} ${currentTheme.border}`}
                   min='1'
                   aria-label='每页行数'
                 />
               </label>
-              <div className={`text-sm mt-1 ${currentTheme.subtext}`}>
-                最大可用高度：{maxPageHeight} 行
-              </div>
+            </div>
+          </div>
+
+          <div className='grid grid-cols-2 gap-4 mb-6'>
+            <div>
+              <label className='block text-sm font-medium mb-2'>
+                字体：
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className={`w-full p-2 rounded mt-2 ${currentTheme.card} ${currentTheme.border}`}
+                >
+                  {fontOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div>
+              <label className='block text-sm font-medium mb-2'>
+                字体大小：
+                <div className='flex items-center gap-2 mt-2'>
+                  <input
+                    type='range'
+                    min='12'
+                    max='24'
+                    value={fontSize}
+                    onChange={(e) => setFontSize(Number(e.target.value))}
+                    className='flex-1'
+                  />
+                  <span className={`text-sm w-12 ${currentTheme.text}`}>
+                    {fontSize}px
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
 
@@ -430,6 +419,36 @@ const Reader: React.FC<ReaderProps> = ({
               </div>
               <span className='text-sm select-none group-hover:text-blue-500 transition-colors'>
                 显示行号
+              </span>
+            </label>
+
+            {/* 自动设置最大宽度复选框 */}
+            <label className='flex items-center gap-3 cursor-pointer group'>
+              <div className='relative'>
+                <input
+                  type='checkbox'
+                  checked={needMaxWidth}
+                  onChange={(e) => {
+                    setNeedMaxWidth(e.target.checked);
+                    if (
+                      e.target.checked &&
+                      containerRef.current &&
+                      measureRef.current
+                    ) {
+                      const calculatedMaxWidth = calculateMaxWidth(
+                        containerRef.current,
+                        measureRef,
+                        showLineNumbers
+                      );
+                      setLineWidth(calculatedMaxWidth);
+                    }
+                  }}
+                  className='w-4 h-4 border rounded appearance-none cursor-pointer checked:bg-blue-500 checked:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors peer'
+                />
+                <Check className='absolute top-0 left-0 w-4 h-4 stroke-2 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity' />
+              </div>
+              <span className='text-sm select-none group-hover:text-blue-500 transition-colors'>
+                自动设置最大宽度
               </span>
             </label>
           </div>
@@ -463,11 +482,9 @@ const Reader: React.FC<ReaderProps> = ({
 
           <div
             ref={containerRef}
-            className={`rounded p-4 h-[40%] ${
-              currentTheme.card
-            } ${getFontFamilyClass(fontFamily)} relative border ${
-              currentTheme.border
-            }`}
+            className={`rounded p-4 ${currentTheme.card} ${getFontFamilyClass(
+              fontFamily
+            )} relative border ${currentTheme.border}`}
             style={{ fontSize: `${fontSize}px` }}
           >
             <div className='absolute opacity-0 pointer-events-none'>
@@ -505,14 +522,4 @@ const Reader: React.FC<ReaderProps> = ({
   );
 };
 
-// 创建一个预设数据的导出版本
-export const BookViewerDemo: React.FC = () => {
-  const sampleContent = `
-# 示例标题
-这是一段示例文本内容，用于测试 BookViewer 组件。
-## 二级标题
-更多的示例文本...
-    `;
-
-  return <Reader initialText={sampleContent} />;
-};
+export default TextPagination;
