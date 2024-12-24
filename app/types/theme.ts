@@ -9,7 +9,12 @@ export interface ThemeStyle {
   border: string;
   hover: string;
   button: string;
+  buttonSecondary: string; // 添加次要按钮样式
   activeButton: string;
+  alert: {
+    success: string;
+    error: string;
+  };
 }
 
 export interface ThemeStyles {
