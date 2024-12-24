@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTheme } from '../lib/theme/useTheme';
 import { Book, Library, Users } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { useRouteTransition } from '~/hooks/useRouteTransition';
 
 export function meta() {
   return [
@@ -14,7 +15,7 @@ export function HomePage() {
   const { currentTheme, mounted } = useTheme();
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
-
+  const navigateWithTransition = useRouteTransition();
   useEffect(() => {
     document.title = 'Library Of Ruina';
     // 添加一个小延迟来触发动画
@@ -92,7 +93,7 @@ export function HomePage() {
             }`}
           >
             <button
-              onClick={() => navigate('/register')}
+              onClick={() => navigateWithTransition('/register')}
               className={`${currentTheme.activeButton} ${currentTheme.border} px-12 py-4 rounded-xl text-lg font-medium hover:scale-105 transition-transform`}
               aria-label='前往登录页面'
             >
