@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTheme } from '../lib/theme/useTheme';
+import { useTheme } from '../hooks/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
 import { Check } from 'lucide-react';
 interface TextPaginationProps {

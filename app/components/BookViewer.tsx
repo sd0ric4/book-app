@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTheme } from '../lib/theme/useTheme';
+import { useTheme } from '../hooks/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
 import FontMenu from './FontMenu';
 
@@ -409,7 +409,7 @@ const Reader: React.FC<ReaderProps> = ({
 
       <div className={`h-screen w-screen p-4 flex flex-col`}>
         <div
-          className={`flex-1 ${currentTheme.card} rounded-lg shadow-lg border ${currentTheme.border} relative`}
+          className={`flex-1 ${currentTheme.card} rounded-lg shadow-lg border overflow-auto ${currentTheme.border} relative`}
         >
           <div className='absolute top-4 left-4 flex items-center gap-2'>
             <button
@@ -419,11 +419,6 @@ const Reader: React.FC<ReaderProps> = ({
             >
               上一页
             </button>
-            <span className='text-sm'>
-              {pages.length > 0
-                ? `${currentPage + 1} / ${pages.length}`
-                : '0 / 0'}
-            </span>
             <button
               onClick={() =>
                 setCurrentPage((p) => Math.min(pages.length - 1, p + 1))
@@ -463,6 +458,13 @@ const Reader: React.FC<ReaderProps> = ({
                 </div>
               </div>
             )) || <div className={currentTheme.subtext}>无内容</div>}
+          </div>
+          <div
+            className={`absolute bottom-4 right-4 text-sm ${currentTheme.subtext}`}
+          >
+            {pages.length > 0
+              ? `${currentPage + 1} / ${pages.length}`
+              : '0 / 0'}
           </div>
         </div>
       </div>

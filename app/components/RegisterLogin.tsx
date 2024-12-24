@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
-import { useTheme } from '../lib/theme/useTheme';
+import { useTheme } from '../hooks/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import '../styles/auth.css';

@@ -1,70 +1,63 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { Route } from './+types/BookDetails';
-import { Book as BookIcon, Sun, Moon, Eye, Computer } from 'lucide-react';
+import { Book as BookIcon } from 'lucide-react';
 import { getBook } from '../services/api';
 import type { Book } from '../types/book';
-import { useTheme } from '../lib/theme/useTheme';
+import { useTheme } from '../hooks/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
 import BookReviewDemo from './BookReview';
 import { getSummary } from '../services/api';
 import type { BookReviewData } from '~/types/review';
-export function RouteComponent({ params }: Route.ComponentProps) {
-  const id = typeof params === 'object' ? params.id : params;
-  const { theme, setTheme, currentTheme, mounted } = useTheme();
-  const [book, setBook] = useState<Book | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [imageError, setImageError] = useState(false);
-  const [summary, setSummary] = useState<BookReviewData | null>(null);
+import { useLoaderData } from 'react-router';
+export async function loader({ params }: Route.LoaderArgs) {
+  const id = params.id;
 
-  useEffect(() => {
-    const fetchBook = async () => {
-      if (!id) return;
-      try {
-        setLoading(true);
-        const data = await getBook(Number(id));
-        const parsedTags =
-          typeof data.tags === 'string'
-            ? JSON.parse(data.tags)
-            : Array.isArray(data.tags)
-            ? data.tags
-            : [];
-        setBook({ ...data, tags: parsedTags });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
+  try {
+    // 获取书籍数据
+    const book = await getBook(Number(id));
+
+    // 处理tags字段
+    const parsedTags =
+      typeof book.tags === 'string'
+        ? JSON.parse(book.tags)
+        : Array.isArray(book.tags)
+        ? book.tags
+        : [];
+
+    // 获取书籍摘要
+    const summaryData = await getSummary({
+      book_title: book.title,
+      author: book.author,
+    });
+
+    // 返回组合的数据
+    return {
+      book: { ...book, tags: parsedTags },
+      summary: summaryData.summary,
     };
+  } catch (error) {
+    throw new Response('Book not found', { status: 404 });
+  }
+}
 
-    fetchBook();
-  }, [id]);
+// Loader类型定义
+type LoaderData = {
+  book: Book & { tags: string[] };
+  summary: BookReviewData;
+};
+
+export function RouteComponent({ params }: Route.ComponentProps) {
+  const { theme, setTheme, currentTheme, mounted } = useTheme();
+  const [imageError, setImageError] = useState(false);
+  const { book, summary } = useLoaderData<LoaderData>();
+
   const defaultSummary: BookReviewData = {
     title: 'null',
     author: 'null',
     characters: [],
     synopsis: 'null',
   };
-  // 获取summary
-  useEffect(() => {
-    const fetchSummary = async () => {
-      if (!id || !book?.title) return;
-      try {
-        setLoading(true);
-        const data = await getSummary({
-          book_title: book.title,
-          author: book.author,
-        });
-        setSummary(data.summary);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchSummary();
-  }, [id, book]); // 添加 book 作为依赖项
   if (!mounted) return null;
 
   return (

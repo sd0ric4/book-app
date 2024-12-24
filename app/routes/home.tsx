@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useTheme } from '../lib/theme/useTheme';
+import { useTheme } from '../hooks/useTheme';
 import { Book, Library, Users } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useRouteTransition } from '~/hooks/useRouteTransition';
