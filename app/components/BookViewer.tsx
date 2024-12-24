@@ -1,31 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../lib/theme/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
-import { Check } from 'lucide-react';
 import FontMenu from './FontMenu';
+
 interface ReaderProps {
   initialText?: string;
 }
-// Add default font settings
+interface HeightCache {
+  standardLineHeight: number;
+  headerHeights: Map<number, number>;
+}
+
 const DEFAULT_FONT_SETTINGS = {
   fontFamily: 'mono',
   fontSize: 16,
 };
+
 const Reader: React.FC<ReaderProps> = ({
   initialText = '# Pride and Prejudice\n## By Jane Austen\n\n这是正文的第一行\n### 第一章\n这是第一章的内容\n#### 小节\n这是最后一行',
 }) => {
   const { theme, setTheme, currentTheme, mounted } = useTheme();
-  const [text, setText] = useState<string>(initialText);
+  const [text] = useState<string>(initialText);
   const [lineWidth, setLineWidth] = useState<number>(40);
   const [pageHeight, setPageHeight] = useState<number>(5);
   const [pages, setPages] = useState<
     Array<{ text: string; isHeader: boolean; headerLevel?: number }[]>
   >([]);
   const [currentPage, setCurrentPage] = useState<number>(0);
-  const [showLineNumbers, setShowLineNumbers] = useState<boolean>(false);
+  const [showLineNumbers] = useState<boolean>(false);
   const [maxLineWidth, setMaxLineWidth] = useState<number>(40);
   const [maxPageHeight, setMaxPageHeight] = useState<number>(5);
-  // Initialize font settings with defaults
   const [fontFamily, setFontFamily] = useState<string>(
     DEFAULT_FONT_SETTINGS.fontFamily
   );
@@ -316,6 +320,7 @@ const Reader: React.FC<ReaderProps> = ({
   }, [text, lineWidth, pageHeight]);
 
   // 获取标题的样式
+
   const getHeaderStyle = (level: number) => {
     const baseStyle = 'font-bold';
     const sizeClasses = {
@@ -328,6 +333,7 @@ const Reader: React.FC<ReaderProps> = ({
     };
     return `${baseStyle} ${sizeClasses[level as keyof typeof sizeClasses]}`;
   };
+
   // Combined font settings effect for both loading and saving
   useEffect(() => {
     const loadFontSettings = () => {
@@ -384,141 +390,56 @@ const Reader: React.FC<ReaderProps> = ({
 
   return (
     <div
-      className={`min-h-screen ${currentTheme.background} ${currentTheme.text} transition-all duration-500`}
+      className={`h-full w-full ${currentTheme.background} ${currentTheme.text} transition-all duration-500 overflow-hidden`}
     >
-      <div className='p-4 max-w-4xl mx-auto'>
-        <div className='flex justify-end mb-4 gap-2'>
-          <FontMenu
-            fontSize={fontSize}
-            fontFamily={fontFamily}
-            setFontFamily={setFontFamily}
-            currentThemeStyle={currentTheme}
-            setFontSize={setFontSize}
-          />
-          <ThemeMenu
-            theme={theme}
-            setTheme={setTheme}
-            currentThemeStyle={currentTheme}
-          />
-        </div>
+      <div className='fixed top-4 right-4 md:top-6 md:right-6 flex gap-2 z-10'>
+        <FontMenu
+          fontSize={fontSize}
+          fontFamily={fontFamily}
+          setFontFamily={setFontFamily}
+          currentThemeStyle={currentTheme}
+          setFontSize={setFontSize}
+        />
+        <ThemeMenu
+          theme={theme}
+          setTheme={setTheme}
+          currentThemeStyle={currentTheme}
+        />
+      </div>
 
+      <div className={`h-screen w-screen p-4 flex flex-col`}>
         <div
-          className={`${currentTheme.card}  h-[90vh] rounded-lg p-6 shadow-lg border ${currentTheme.border}`}
+          className={`flex-1 ${currentTheme.card} rounded-lg shadow-lg border ${currentTheme.border} relative`}
         >
-          <div className='mb-6'>
-            <label className='block text-sm font-medium mb-2'>
-              输入文本：
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                className={`w-full h-32 p-2 rounded font-mono mt-2 ${currentTheme.card} ${currentTheme.border}`}
-                placeholder='输入要分页的文本，使用 # 表示标题...'
-              />
-            </label>
-          </div>
-
-          <div className='grid grid-cols-2 gap-4 mb-6'>
-            <div>
-              <label className='block text-sm font-medium mb-2'>
-                每行字符数：
-                <input
-                  type='number'
-                  value={lineWidth}
-                  onChange={(e) => {
-                    const value = Math.min(
-                      Number(e.target.value),
-                      maxLineWidth
-                    );
-                    setLineWidth(value);
-                  }}
-                  max={maxLineWidth}
-                  className={`w-full p-2 rounded mt-2 ${currentTheme.card} ${currentTheme.border}`}
-                  min='1'
-                  aria-label='每行字符数'
-                />
-              </label>
-              <div className={`text-sm mt-1 ${currentTheme.subtext}`}>
-                最大可用宽度：{maxLineWidth} 字符
-              </div>
-            </div>
-            <div>
-              {' '}
-              <label className='block text-sm font-medium mb-2'>
-                每页行数：
-                <input
-                  type='number'
-                  value={pageHeight}
-                  onChange={(e) => {
-                    const value = Math.min(
-                      Number(e.target.value),
-                      maxPageHeight
-                    );
-                    setPageHeight(value);
-                  }}
-                  max={maxPageHeight}
-                  className={`w-full p-2 rounded mt-2 ${currentTheme.card} ${currentTheme.border}`}
-                  min='1'
-                  aria-label='每页行数'
-                />
-              </label>
-              <div className={`text-sm mt-1 ${currentTheme.subtext}`}>
-                最大可用高度：{maxPageHeight} 行
-              </div>
-            </div>
-          </div>
-
-          <div className='flex gap-6 mb-4'>
-            {/* 显示行号复选框 */}
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input
-                  type='checkbox'
-                  checked={showLineNumbers}
-                  onChange={(e) => setShowLineNumbers(e.target.checked)}
-                  className='w-4 h-4 border rounded appearance-none cursor-pointer checked:bg-blue-500 checked:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors peer'
-                />
-                <Check className='absolute top-0 left-0 w-4 h-4 stroke-2 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity' />
-              </div>
-              <span className='text-sm select-none group-hover:text-blue-500 transition-colors'>
-                显示行号
-              </span>
-            </label>
-          </div>
-
-          <div className='mb-4 flex justify-between items-center'>
-            <h2 className='text-lg font-medium'>预览效果</h2>
-            <div className='flex items-center gap-2'>
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                disabled={currentPage === 0}
-                className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
-              >
-                上一页
-              </button>
-              <span className='text-sm'>
-                {pages.length > 0
-                  ? `${currentPage + 1} / ${pages.length}`
-                  : '0 / 0'}
-              </span>
-              <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(pages.length - 1, p + 1))
-                }
-                disabled={currentPage >= pages.length - 1}
-                className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
-              >
-                下一页
-              </button>
-            </div>
+          <div className='absolute top-4 left-4 flex items-center gap-2'>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
+            >
+              上一页
+            </button>
+            <span className='text-sm'>
+              {pages.length > 0
+                ? `${currentPage + 1} / ${pages.length}`
+                : '0 / 0'}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((p) => Math.min(pages.length - 1, p + 1))
+              }
+              disabled={currentPage >= pages.length - 1}
+              className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
+            >
+              下一页
+            </button>
           </div>
 
           <div
             ref={containerRef}
-            className={`rounded p-4 h-[40%] ${
+            className={`h-full w-full p-16 ${
               currentTheme.card
-            } ${getFontFamilyClass(fontFamily)} relative border ${
-              currentTheme.border
-            }`}
+            } ${getFontFamilyClass(fontFamily)} overflow-auto`}
             style={{ fontSize: `${fontSize}px` }}
           >
             <div className='absolute opacity-0 pointer-events-none'>
@@ -533,15 +454,8 @@ const Reader: React.FC<ReaderProps> = ({
 
             {pages[currentPage]?.map((line, index) => (
               <div key={index} className='flex min-h-6'>
-                {showLineNumbers && (
-                  <span
-                    className={`w-8 text-right pr-6 ${currentTheme.subtext}`}
-                  >
-                    {index + 1 + currentPage * pageHeight}.
-                  </span>
-                )}
                 <div
-                  className={`whitespace-pre flex-1 min-h-6 pl-4 ${
+                  className={`whitespace-pre flex-1 min-h-6 ${
                     line.isHeader ? getHeaderStyle(line.headerLevel || 1) : ''
                   }`}
                 >
@@ -563,6 +477,87 @@ export const BookViewerDemo: React.FC = () => {
 这是一段示例文本内容，用于测试 BookViewer 组件。
 ## 二级标题
 更多的示例文本...
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。
+此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。此材料可能受版权保护。
+“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
+“I hope Mr. Bingley will like it, Lizzy.”
+“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
+
+摘录来自
+Pride and Prejudice
+Jane Austen
+此材料可能受版权保护。
     `;
 
   return <Reader initialText={sampleContent} />;
