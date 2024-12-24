@@ -6,7 +6,11 @@ import FontMenu from './FontMenu';
 interface ReaderProps {
   initialText?: string;
 }
-
+// Add default font settings
+const DEFAULT_FONT_SETTINGS = {
+  fontFamily: 'mono',
+  fontSize: 16,
+};
 const Reader: React.FC<ReaderProps> = ({
   initialText = '# Pride and Prejudice\n## By Jane Austen\n\n这是正文的第一行\n### 第一章\n这是第一章的内容\n#### 小节\n这是最后一行',
 }) => {
@@ -21,8 +25,13 @@ const Reader: React.FC<ReaderProps> = ({
   const [showLineNumbers, setShowLineNumbers] = useState<boolean>(false);
   const [maxLineWidth, setMaxLineWidth] = useState<number>(40);
   const [maxPageHeight, setMaxPageHeight] = useState<number>(5);
-  const [fontFamily, setFontFamily] = useState<string>('mono');
-  const [fontSize, setFontSize] = useState<number>(16);
+  // Initialize font settings with defaults
+  const [fontFamily, setFontFamily] = useState<string>(
+    DEFAULT_FONT_SETTINGS.fontFamily
+  );
+  const [fontSize, setFontSize] = useState<number>(
+    DEFAULT_FONT_SETTINGS.fontSize
+  );
   const lineHeightCache = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -319,6 +328,48 @@ const Reader: React.FC<ReaderProps> = ({
     };
     return `${baseStyle} ${sizeClasses[level as keyof typeof sizeClasses]}`;
   };
+  // Combined font settings effect for both loading and saving
+  useEffect(() => {
+    const loadFontSettings = () => {
+      try {
+        const savedFontFamily = localStorage.getItem('fontFamily');
+        const savedFontSize = localStorage.getItem('fontSize');
+
+        if (savedFontFamily) {
+          setFontFamily(savedFontFamily);
+        }
+
+        if (savedFontSize) {
+          const parsedSize = parseInt(savedFontSize, 10);
+          if (!isNaN(parsedSize)) {
+            setFontSize(parsedSize);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load font settings from localStorage:', error);
+        // Use defaults if localStorage fails
+        setFontFamily(DEFAULT_FONT_SETTINGS.fontFamily);
+        setFontSize(DEFAULT_FONT_SETTINGS.fontSize);
+      }
+    };
+
+    const saveFontSettings = () => {
+      try {
+        localStorage.setItem('fontFamily', fontFamily);
+        localStorage.setItem('fontSize', fontSize.toString());
+      } catch (error) {
+        console.warn('Failed to save font settings to localStorage:', error);
+      }
+    };
+
+    // Load settings only once when component mounts
+    if (!mounted) {
+      loadFontSettings();
+    } else {
+      // Save settings when they change and component is mounted
+      saveFontSettings();
+    }
+  }, [fontFamily, fontSize, mounted]);
 
   // 获取字体类名
   const getFontFamilyClass = (fontFamily: string) => {
