@@ -30,16 +30,26 @@ export const registerUser = async (
   }
 };
 
-export const loginUser = async (
-  data: loginRequest
-): Promise<successResponse | errorResponse> => {
+export const loginUser = async (data: loginRequest) => {
   try {
     const response = await api.post('/users/login', data);
+    if (response.data.token) {
+      document.cookie = `auth_token=${response.data.token};path=/`;
+    }
     return { message: response.data.message };
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      return { error: error.response?.data?.message || 'Failed to login user' };
+      return { error: error.response?.data?.message || 'Failed to login' };
     }
-    return { error: 'Failed to login user' };
+    return { error: 'Failed to login' };
   }
 };
+
+export function checkAuth(request: Request) {
+  // 从 cookie 中读取 token
+  const cookie = request.headers.get('Cookie') || '';
+  const token = cookie
+    .split(';')
+    .find((c) => c.trim().startsWith('auth_token='));
+  return !!token;
+}

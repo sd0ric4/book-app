@@ -6,10 +6,6 @@ import FontMenu from './FontMenu';
 interface ReaderProps {
   initialText?: string;
 }
-interface HeightCache {
-  standardLineHeight: number;
-  headerHeights: Map<number, number>;
-}
 
 const DEFAULT_FONT_SETTINGS = {
   fontFamily: 'mono',

@@ -4,6 +4,8 @@ import { ThemeMenu } from '../components/ThemeMenu';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import '../styles/auth.css';
 import { loginUser, registerUser } from '~/services/users/auth';
+import { Navigate, useNavigate } from 'react-router';
+import { useRouteTransition } from '~/hooks/useRouteTransition';
 
 type AlertState = {
   show: boolean;
@@ -21,6 +23,9 @@ type FocusableElement = {
 };
 
 export function AuthPage() {
+  const navigateWithTransition = useRouteTransition();
+  const navigate = useNavigate();
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const { theme, setTheme, currentTheme, mounted } = useTheme();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -169,6 +174,7 @@ export function AuthPage() {
           type: 'success',
         });
         // 处理登录成功后的跳转
+        navigateWithTransition('/books/shelf');
       } else {
         const response = await registerUser({ email, password, username });
         if ('error' in response) {

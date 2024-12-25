@@ -16,3 +16,15 @@ export const getBookInfo = async (id: number): Promise<Book> => {
     throw error;
   }
 };
+
+export const getBookList = async (): Promise<Book[]> => {
+  try {
+    const response = await api.get<Book[]>('/books/list');
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch books');
+    }
+    throw error;
+  }
+};
