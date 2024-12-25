@@ -9,6 +9,7 @@ import BookReviewDemo from './BookReview';
 import { getSummary } from '../services/api';
 import type { BookReviewData } from '~/types/review';
 import { useLoaderData } from 'react-router';
+import BackButton from './BackToShelfButton';
 export async function loader({ params }: Route.LoaderArgs) {
   const id = params.id;
 
@@ -67,8 +68,9 @@ export function RouteComponent({ params }: Route.ComponentProps) {
       {/* Main content with padding bottom for fixed navigation */}
       <div className='pb-32 md:pb-24'>
         <div className='max-w-4xl mx-auto p-4 md:p-6'>
-          {/* Theme switcher */}
-          <div className='flex justify-end mb-4 md:mb-6'>
+          {/* Navigation and theme controls */}
+          <div className='flex justify-between items-center mb-4 md:mb-6'>
+            <BackButton currentThemeStyle={currentTheme} />
             <ThemeMenu
               theme={theme}
               setTheme={setTheme}
