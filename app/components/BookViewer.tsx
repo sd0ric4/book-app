@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { ThemeMenu } from '../components/ThemeMenu';
 import FontMenu from './FontMenu';
-
+import ReaderModeMenu from './ReaderModeMenu';
 interface ReaderProps {
   initialText?: string;
 }
@@ -11,10 +11,64 @@ const DEFAULT_FONT_SETTINGS = {
   fontFamily: 'mono',
   fontSize: 16,
 };
+const useIsDualPage = () => {
+  const [isDualPage, setIsDualPage] = useState<boolean | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
 
+  useEffect(() => {
+    const checkDualPageMode = (width: number) => {
+      setIsDualPage(width >= 1024);
+    };
+
+    if (containerRef.current) {
+      // 立即检查初始宽度
+      checkDualPageMode(containerRef.current.offsetWidth);
+
+      // 使用 ResizeObserver 监听容器大小变化
+      observerRef.current = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          checkDualPageMode(entry.contentRect.width);
+        }
+      });
+
+      observerRef.current.observe(containerRef.current);
+    }
+
+    // 添加一个短暂延时的额外检查，以应对某些特殊情况
+    const timeoutId = setTimeout(() => {
+      if (containerRef.current) {
+        checkDualPageMode(containerRef.current.offsetWidth);
+      }
+    }, 0);
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  return {
+    isDualPage:
+      isDualPage ??
+      (typeof window !== 'undefined' && window.innerWidth >= 1024),
+    containerRef,
+    getDualPageClassName: () =>
+      `grid ${
+        isDualPage ??
+        (typeof window !== 'undefined' && window.innerWidth >= 1024)
+          ? 'lg:grid-cols-2 gap-8'
+          : 'grid-cols-1'
+      }`,
+  };
+};
 const Reader: React.FC<ReaderProps> = ({
   initialText = '# Pride and Prejudice\n## By Jane Austen\n\n这是正文的第一行\n### 第一章\n这是第一章的内容\n#### 小节\n这是最后一行',
 }) => {
+  const [isVerticalMode, setIsVerticalMode] = useState<boolean>(false);
+  const { isDualPage, containerRef, getDualPageClassName } = useIsDualPage();
   const { theme, setTheme, currentTheme, mounted } = useTheme();
   const [text] = useState<string>(initialText);
   const [lineWidth, setLineWidth] = useState<number>(40);
@@ -33,9 +87,33 @@ const Reader: React.FC<ReaderProps> = ({
     DEFAULT_FONT_SETTINGS.fontSize
   );
   const lineHeightCache = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
+  const renderVerticalContent = () => {
+    const lines = text.split('\n').map((line, index) => {
+      const headerInfo = getHeaderInfo(line);
+      return (
+        <div
+          key={index}
+          className={`py-1 ${
+            headerInfo.isHeader
+              ? getHeaderStyle(headerInfo.headerLevel || 1)
+              : ''
+          }`}
+        >
+          {headerInfo.text || '\u00A0'}
+        </div>
+      );
+    });
 
+    return (
+      <div
+        className={`px-16 py-8 ${getFontFamilyClass(fontFamily)}`}
+        style={{ fontSize: `${fontSize}px` }}
+      >
+        {lines}
+      </div>
+    );
+  };
   // 字符宽度计算保持不变...
   const getCharWidth = (char: string): number => {
     if (/[\u4e00-\u9fa5]|[，。；：！？、]/.test(char)) {
@@ -51,9 +129,9 @@ const Reader: React.FC<ReaderProps> = ({
       return 0.5;
     }
     if (/\s/.test(char)) {
-      return 0.5;
+      return 1;
     }
-    return 0.5;
+    return 0.8;
   };
   // 更新计算最大行高的函数
   const calculateMaxHeight = (container: HTMLDivElement): number => {
@@ -246,15 +324,22 @@ const Reader: React.FC<ReaderProps> = ({
     const currentWidth = widths.get(fontFamily) || widths.get('mono');
     const monoWidth = widths.get('mono');
     const fontAdjustment = monoWidth / currentWidth;
+
     if (!container || !measureRef.current) return 40;
 
     const containerStyle = window.getComputedStyle(container);
     const containerPaddingLeft = parseFloat(containerStyle.paddingLeft);
     const containerPaddingRight = parseFloat(containerStyle.paddingRight);
+    const containerGap = isDualPage ? parseFloat(containerStyle.gap || '0') : 0;
 
+    // 计算可用宽度，考虑双页模式
     let availableWidth =
-      container.offsetWidth -
-      (containerPaddingLeft + containerPaddingRight) * 2;
+      container.offsetWidth - (containerPaddingLeft + containerPaddingRight);
+
+    if (isDualPage) {
+      // 在双页模式下，考虑间隙并将宽度除以2
+      availableWidth = (availableWidth - containerGap) / 2;
+    }
 
     if (showLineNumbers) {
       const lineNumberElement = container.querySelector('.text-gray-400');
@@ -294,7 +379,7 @@ const Reader: React.FC<ReaderProps> = ({
         setMaxLineWidth(calculatedMaxWidth);
         setMaxPageHeight(calculatedMaxHeight);
         setLineWidth(calculatedMaxWidth);
-        setPageHeight(calculatedMaxHeight); // 自动设置为最大行数
+        setPageHeight(calculatedMaxHeight);
       }
     };
 
@@ -305,7 +390,7 @@ const Reader: React.FC<ReaderProps> = ({
       clearTimeout(timeoutId);
       window.removeEventListener('resize', updateMaxDimensions);
     };
-  }, [showLineNumbers, fontSize, fontFamily]);
+  }, [showLineNumbers, fontSize, fontFamily, isDualPage]); // 添加 isDualPage 作为依赖
   // 在字体或字号变化时重置缓存
   useEffect(() => {
     lineHeightCache.current = null;
@@ -382,6 +467,52 @@ const Reader: React.FC<ReaderProps> = ({
     };
     return fontClasses[fontFamily as keyof typeof fontClasses];
   };
+  // 渲染单个页面内容
+  const renderPage = (pageContent: (typeof pages)[0] | null, index: number) => {
+    if (!pageContent) return null;
+
+    return (
+      <div key={index} className='h-full flex flex-col'>
+        {pageContent.map((line, lineIndex) => (
+          <div key={lineIndex} className='flex min-h-6'>
+            <div
+              className={`whitespace-pre flex-1 min-h-6 ${
+                line.isHeader ? getHeaderStyle(line.headerLevel || 1) : ''
+              }`}
+            >
+              {line.text || '\u00A0'}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // 获取当前显示的页面内容
+  const getCurrentPages = () => {
+    if (!isDualPage) {
+      return [pages[currentPage]];
+    }
+
+    // 双页模式下，显示左右两页
+    const leftPage = pages[currentPage];
+    const rightPage =
+      currentPage < pages.length - 1 ? pages[currentPage + 1] : null;
+    return [leftPage, rightPage].filter(
+      (page): page is (typeof pages)[0] => page !== null
+    );
+  };
+
+  // 处理翻页
+  const handlePageChange = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      setCurrentPage((p) => Math.max(0, isDualPage ? p - 2 : p - 1));
+    } else {
+      setCurrentPage((p) =>
+        Math.min(pages.length - 1, isDualPage ? p + 2 : p + 1)
+      );
+    }
+  };
   if (!mounted) return null;
 
   return (
@@ -396,6 +527,11 @@ const Reader: React.FC<ReaderProps> = ({
           currentThemeStyle={currentTheme}
           setFontSize={setFontSize}
         />
+        <ReaderModeMenu
+          isVerticalMode={isVerticalMode}
+          setIsVerticalMode={setIsVerticalMode}
+          currentThemeStyle={currentTheme}
+        />
         <ThemeMenu
           theme={theme}
           setTheme={setTheme}
@@ -405,63 +541,80 @@ const Reader: React.FC<ReaderProps> = ({
 
       <div className={`h-screen w-screen p-4 flex flex-col`}>
         <div
-          className={`flex-1 ${currentTheme.card} rounded-lg shadow-lg border overflow-auto ${currentTheme.border} relative`}
+          className={`flex-1 ${currentTheme.card} rounded-lg shadow-lg border overflow-hidden ${currentTheme.border} relative`}
         >
-          <div className='absolute top-4 left-4 flex items-center gap-2'>
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-              disabled={currentPage === 0}
-              className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
-            >
-              上一页
-            </button>
-            <button
-              onClick={() =>
-                setCurrentPage((p) => Math.min(pages.length - 1, p + 1))
-              }
-              disabled={currentPage >= pages.length - 1}
-              className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
-            >
-              下一页
-            </button>
-          </div>
-
-          <div
-            ref={containerRef}
-            className={`h-full w-full p-16 ${
-              currentTheme.card
-            } ${getFontFamilyClass(fontFamily)} overflow-auto`}
-            style={{ fontSize: `${fontSize}px` }}
-          >
-            <div className='absolute opacity-0 pointer-events-none'>
-              <span
-                ref={measureRef}
-                className={getFontFamilyClass(fontFamily)}
-                style={{ fontSize: `${fontSize}px` }}
+          {!isVerticalMode && (
+            <div className='absolute top-4 left-4 flex items-center gap-2'>
+              <button
+                onClick={() => handlePageChange('prev')}
+                disabled={currentPage === 0}
+                className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
               >
-                测
-              </span>
+                上一页
+              </button>
+              <button
+                onClick={() => handlePageChange('next')}
+                disabled={
+                  currentPage >=
+                  (isDualPage ? pages.length - 2 : pages.length - 1)
+                }
+                className={`px-3 py-1 rounded ${currentTheme.button} disabled:opacity-50`}
+              >
+                下一页
+              </button>
             </div>
+          )}
 
-            {pages[currentPage]?.map((line, index) => (
-              <div key={index} className='flex min-h-6'>
-                <div
-                  className={`whitespace-pre flex-1 min-h-6 ${
-                    line.isHeader ? getHeaderStyle(line.headerLevel || 1) : ''
-                  }`}
+          {isVerticalMode ? (
+            <div className='h-full overflow-y-auto'>
+              {renderVerticalContent()}
+            </div>
+          ) : (
+            <div
+              ref={containerRef}
+              className={`h-full w-full p-16 ${
+                currentTheme.card
+              } ${getFontFamilyClass(fontFamily)} overflow-auto grid ${
+                isDualPage ? 'lg:grid-cols-2 gap-8' : 'grid-cols-1'
+              }`}
+              style={{ fontSize: `${fontSize}px` }}
+            >
+              <div className='absolute opacity-0 pointer-events-none'>
+                <span
+                  ref={measureRef}
+                  className={getFontFamilyClass(fontFamily)}
+                  style={{ fontSize: `${fontSize}px` }}
                 >
-                  {line.text || '\u00A0'}
-                </div>
+                  测
+                </span>
               </div>
-            )) || <div className={currentTheme.subtext}>无内容</div>}
-          </div>
-          <div
-            className={`absolute bottom-4 right-4 text-sm ${currentTheme.subtext}`}
-          >
-            {pages.length > 0
-              ? `${currentPage + 1} / ${pages.length}`
-              : '0 / 0'}
-          </div>
+
+              {getCurrentPages().map((pageContent, index) => (
+                <div
+                  key={index}
+                  className={`h-full ${
+                    isDualPage ? 'border-r last:border-r-0' : ''
+                  } ${currentTheme.border}`}
+                >
+                  {renderPage(pageContent, index)}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!isVerticalMode && (
+            <div
+              className={`absolute bottom-4 right-4 text-sm ${currentTheme.subtext}`}
+            >
+              {pages.length > 0
+                ? `${currentPage + 1}${
+                    isDualPage && currentPage < pages.length - 1
+                      ? '-' + (currentPage + 2)
+                      : ''
+                  } / ${pages.length}`
+                : '0 / 0'}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -471,91 +624,33 @@ const Reader: React.FC<ReaderProps> = ({
 // 创建一个预设数据的导出版本
 export const BookViewerDemo: React.FC = () => {
   const sampleContent = `
-# 示例标题
-这是一段示例文本内容，用于测试 BookViewer 组件。
-## 二级标题
-更多的示例文本...
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。
-此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。此材料可能受版权保护。
-“Mr. Bennet was among the earliest of those who waited on Mr. Bingley. He had always intended to visit him, though to the last always assuring his wife that he should not go; and till the evening after the visit was paid she had no knowledge of it. It was then disclosed in the following manner. Observing his second daughter employed in trimming a hat, he suddenly addressed her with,—
-“I hope Mr. Bingley will like it, Lizzy.”
-“We are not in a way to know what Mr. Bingley likes,” said her mother, resentfully, “since we are not to visit.”
-
-摘录来自
-Pride and Prejudice
-Jane Austen
-此材料可能受版权保护。
+毫無價值、俯拾皆是的虛假。
+在無數的複製當中，將慘烈的戰役變成一種遊戲，變成一個讓人發噱的「故事」。
+巨人族戰役從很久以前就喪失了它的真實性，它僅僅是一個「任務」，再也沒有星座會打從心底對它感到敬畏。
+我抬頭仰望黑帝斯。
+「富裕夤夜之父啊，您還要放任奧林帕斯將塔爾塔羅斯的巨神當作玩物多久？」
+既不隸屬奧林帕斯，又併稱為奧林帕斯三大主神的存在。
+我回想起《滅活法》當中關於祂的設定。
+黑帝斯雖然為巨人族戰役供應了無數的巨神，但連一次都不曾參加那個任務。
+這位蒼老的冥界之王，長久見證著巨神在祂的牢獄中承受的痛苦折磨。
+因此，黑帝斯知曉那些囚犯的悲傷，也理解祂們的苦難，恍若被囚犯教化的獄卒。
+「上次我造訪冥界，見到塔爾塔羅斯的地底正在積極整備巨神兵。您暗中籌備一切，不都是為了這一刻？」
+『那只是你過度臆測。』
+那只是為了防範巨神再次引發戰爭　　面對奧林帕斯十二神，黑帝斯便是這樣解釋巨神兵的存在。
+然而，關於黑帝斯內心真正的想法，我心下雪亮。
+「我知道您對十二神心懷憎恨。雖然號稱三大主神，但對祂們而言，您不過是負責替祂們解決麻煩人物的獄卒罷了。」
+世上最古老的獄卒，或許也和身陷囹圄的囚犯沒什麼區別。
+黑帝斯安靜地俯視著我。
+『巨人族戰役是一場極為殘酷的戰爭。』
+「我知道。」
+『真正的巨人族戰役一旦爆發，不僅巨神會淪為受到任務操弄的玩物，身在此地的所有人，都將成為浩瀚神話的一部分。』
+黑帝斯抬起目光，好似在眺望著遠方的滅亡。
+『那將使鬼怪肆意妄為，在星星直播引發劇變，星雲之間長久爭鬥的角力關係，也會一夕傾覆。』
+「這些我也明白。」
+『你究竟想得到什麼，以致不惜為世界帶來如此令人髮指的苦難？』
+出聲回答的人並不是我。
+［傳說『無王世界之王』開始講述故事。］
+［傳說『異蹟對抗者』開始講述故事。］
     `;
 
   return <Reader initialText={sampleContent} />;
