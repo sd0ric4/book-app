@@ -572,7 +572,7 @@ const Reader: React.FC<ReaderProps> = ({
           ) : (
             <div
               ref={containerRef}
-              className={`h-full w-full p-16 ${
+              className={`h-full w-full p-8 ${
                 currentTheme.card
               } ${getFontFamilyClass(fontFamily)} overflow-auto grid ${
                 isDualPage ? 'lg:grid-cols-2 gap-8' : 'grid-cols-1'
