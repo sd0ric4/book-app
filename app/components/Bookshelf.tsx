@@ -14,7 +14,7 @@ import type { Book } from '~/types/book';
 import { useLoaderData } from 'react-router';
 import BookDetailButton from './BookDetailsButton';
 import Pagination from './PaginationControls';
-
+import LogoutButton from './LogoutButton';
 export async function loader({ params }: Route.LoaderArgs) {
   try {
     const booklist = await getBookList();
@@ -102,16 +102,18 @@ const Bookshelf = ({ params }: Route.ComponentProps) => {
     >
       <div className='relative max-w-6xl mx-auto p-4'>
         <div className='flex items-center justify-between mb-8'>
-          <h1 className={`text-2xl font-bold ${currentTheme.text}`}>
-            我的书架
-          </h1>
+          <div className='flex items-center gap-4'>
+            <h1 className={`text-2xl font-bold ${currentTheme.text}`}>
+              我的书架
+            </h1>
+            <LogoutButton currentThemeStyle={currentTheme} />
+          </div>
           <ThemeMenu
             theme={theme}
             setTheme={setTheme}
             currentThemeStyle={currentTheme}
           />
         </div>
-
         <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8'>
           {getCurrentPageBooks().map((book) => (
             <div

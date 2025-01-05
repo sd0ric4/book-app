@@ -8,8 +8,9 @@ import { ThemeMenu } from '../components/ThemeMenu';
 import BookReviewDemo from './BookReview';
 import { getSummary } from '../services/api';
 import type { BookReviewData } from '~/types/review';
-import { useLoaderData } from 'react-router';
+import { Link, useLoaderData } from 'react-router';
 import BackButton from './BackToShelfButton';
+import { useRouteTransition } from '~/hooks/useRouteTransition';
 export async function loader({ params }: Route.LoaderArgs) {
   const id = params.id;
 
@@ -48,6 +49,12 @@ type LoaderData = {
 };
 
 export function RouteComponent({ params }: Route.ComponentProps) {
+  const navigateWithTransition = useRouteTransition();
+
+  const handleReadClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigateWithTransition('/test');
+  };
   const { theme, setTheme, currentTheme, mounted } = useTheme();
   const [imageError, setImageError] = useState(false);
   const { book, summary } = useLoaderData<LoaderData>();
@@ -179,18 +186,17 @@ export function RouteComponent({ params }: Route.ComponentProps) {
             >
               加入书架
             </button>
-            <a
-              href={book?.book_url}
-              target='_blank'
-              rel='noopener noreferrer'
+            <Link
+              to='/test'
+              onClick={handleReadClick}
               className={`px-4 md:px-6 py-2.5 md:py-3 w-full ${currentTheme.activeButton} ${currentTheme.text} 
-                       rounded-xl transition-all duration-200 backdrop-blur-sm border ${currentTheme.border} 
-                       text-sm md:text-base shadow-sm hover:shadow-md 
-                       hover:scale-[1.02] active:scale-95
-                       flex justify-center items-center text-center`}
+                   rounded-xl transition-all duration-200 backdrop-blur-sm border ${currentTheme.border} 
+                   text-sm md:text-base shadow-sm hover:shadow-md 
+                   hover:scale-[1.02] active:scale-95
+                   flex justify-center items-center text-center`}
             >
               阅读此书
-            </a>
+            </Link>
           </div>
         </div>
       </div>
