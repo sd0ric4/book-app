@@ -7,6 +7,7 @@ import {
 
 export default [
   index('routes/home.tsx'),
+  route('api/*', './routes/api/$.tsx'),
   layout('./components/LoginCheck.tsx', [
     route('register', './components/RegisterLogin.tsx'),
   ]),
