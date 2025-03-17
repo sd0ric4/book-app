@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   web:
-    image: sd0ric4/vidar-page:latest
+    image: sd0ric4/book-app:latest
     ports:
       - '13002:13000'
     environment:
